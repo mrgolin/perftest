@@ -171,12 +171,6 @@ struct pingpong_context {
 	struct ibv_cq				*send_cq;
 	struct ibv_cq				*recv_cq;
 	void					**buf;
-	#ifdef HAVE_CUDA
-	#ifdef HAVE_CUDA_DMABUF
-	int					*cuda_buf_dmabuf_fd;
-	uint64_t				*cuda_buf_dmabuf_offset;
-	#endif
-	#endif
 	struct ibv_ah				**ah;
 	struct ibv_qp				**qp;
 	#ifdef HAVE_IBV_WR_API
@@ -201,7 +195,6 @@ struct pingpong_context {
 	uint64_t				send_qp_buff_size;
 	uint64_t				flow_buff_size;
 	int					tx_depth;
-	int					huge_shmid;
 	uint64_t				*scnt;
 	uint64_t				*ccnt;
 	int					is_contig_supported;
@@ -222,6 +215,7 @@ struct pingpong_context {
 	struct ibv_xrcd				*xrc_domain;
 	int 					fd;
 	#endif
+	struct memory_ctx			*memory;
 };
 
  struct pingpong_dest {

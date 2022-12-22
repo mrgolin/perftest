@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include "perftest_communication.h"
+#include "host_memory.h"
 #ifdef HAVE_SRD
 #include <infiniband/efadv.h>
 #endif
@@ -1256,6 +1257,8 @@ int create_comm_struct(struct perftest_comm *comm,
 	comm->rdma_params->use_old_post_send	= user_param->use_old_post_send;
 	comm->rdma_params->source_ip		= user_param->source_ip;
 	comm->rdma_params->has_source_ip	= user_param->has_source_ip;
+	comm->rdma_params->memory_type		= MEMORY_HOST;
+	comm->rdma_params->memory_create	= host_memory_create;
 
 	if (user_param->use_rdma_cm) {
 
@@ -1270,7 +1273,11 @@ int create_comm_struct(struct perftest_comm *comm,
 		comm->rdma_params->size = sizeof(struct pingpong_dest);
 		comm->rdma_ctx->context = NULL;
 
-		MAIN_ALLOC(comm->rdma_ctx->mr, struct ibv_mr*, user_param->num_of_qps, free_rdma_ctx);
+		comm->rdma_ctx->memory = comm->rdma_params->memory_create(comm->rdma_params);
+		if (comm->rdma_ctx->memory == NULL)
+			goto free_rdma_ctx;
+
+		MAIN_ALLOC(comm->rdma_ctx->mr, struct ibv_mr*, user_param->num_of_qps, free_memory_ctx);
 		MAIN_ALLOC(comm->rdma_ctx->buf, void* , user_param->num_of_qps, free_mr);
 		MAIN_ALLOC(comm->rdma_ctx->qp,struct ibv_qp*,comm->rdma_params->num_of_qps, free_buf);
 		#ifdef HAVE_IBV_WR_API
@@ -1314,6 +1321,8 @@ free_buf:
 	free(comm->rdma_ctx->buf);
 free_mr:
 	free(comm->rdma_ctx->mr);
+free_memory_ctx:
+	comm->rdma_ctx->memory->destroy(comm->rdma_ctx->memory);
 free_rdma_ctx:
 	free(comm->rdma_ctx);
 free_rdma_params:
@@ -1338,6 +1347,11 @@ void dealloc_comm_struct(struct perftest_comm *comm,
 		#ifdef HAVE_DCS
 		free(comm->rdma_ctx->dci_stream_id);
 		#endif
+		if (comm->rdma_ctx->memory != NULL)
+		{
+			comm->rdma_ctx->memory->destroy(comm->rdma_ctx->memory);
+			comm->rdma_ctx->memory = NULL;
+		}
 		free(comm->rdma_ctx);
 	}
 
